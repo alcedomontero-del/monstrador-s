@@ -1,0 +1,26 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() { return request.auth != null; }
+    function isMemberOf(businessId) {
+      return isSignedIn() &&
+        firestore.exists(/databases/(default)/documents/businesses/$(businessId)/members/$(request.auth.uid));
+    }
+
+    // Fotos de producto / logo del negocio. Lectura pública (se muestran en
+    // la app); solo un miembro del negocio puede subir, con límite de tamaño
+    // y tipo de archivo.
+    match /businesses/{businessId}/media/{fileName} {
+      allow read: if true;
+      allow write: if isMemberOf(businessId)
+        && request.resource.size < 3 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

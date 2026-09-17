@@ -1,0 +1,98 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function isSignedIn() { return request.auth != null; }
+    function myEmail() { return request.auth.token.email; }
+    // Evita que alguien registre una cuenta con el correo de otra persona
+    // y se auto-agregue con una invitación dirigida a ese correo real.
+    function isVerified() { return request.auth.token.email_verified == true; }
+
+    function memberDoc(businessId) {
+      return get(/databases/$(database)/documents/businesses/$(businessId)/members/$(request.auth.uid));
+    }
+    function isMember(businessId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/businesses/$(businessId)/members/$(request.auth.uid));
+    }
+    function role(businessId) { return memberDoc(businessId).data.role; }
+    function isOwner(businessId) { return isMember(businessId) && role(businessId) == 'dueno'; }
+
+    // ---------- Perfil propio (puntero a su negocio, solo caché de UI) ----------
+    match /users/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    match /businesses/{businessId} {
+      allow read: if isMember(businessId);
+      allow update: if isOwner(businessId);
+      allow delete: if false;
+      // El cliente crea el negocio directamente (sin Cloud Function):
+      // debe quedar marcado como dueño el mismo usuario que lo crea.
+      allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
+
+      // ---------- Miembros y roles ----------
+      match /members/{uid} {
+        allow read: if isMember(businessId);
+        // Caso 1: se está creando el negocio y el propio dueño se agrega como primer miembro.
+        // Caso 2: alguien acepta una invitación pendiente dirigida a su correo.
+        allow create: if isSignedIn() && request.auth.uid == uid && (
+          (request.resource.data.role == 'dueno' &&
+            get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerUid == uid)
+          ||
+          (isVerified() &&
+            exists(/databases/$(database)/documents/businesses/$(businessId)/invitations/$(request.resource.data.inviteId)) &&
+            get(/databases/$(database)/documents/businesses/$(businessId)/invitations/$(request.resource.data.inviteId)).data.emailLower == myEmail().lower() &&
+            get(/databases/$(database)/documents/businesses/$(businessId)/invitations/$(request.resource.data.inviteId)).data.estado == 'pendiente' &&
+            get(/databases/$(database)/documents/businesses/$(businessId)/invitations/$(request.resource.data.inviteId)).data.role == request.resource.data.role)
+        );
+        allow update, delete: if isOwner(businessId);
+      }
+
+      // ---------- Inventario ----------
+      match /products/{id} {
+        allow read: if isMember(businessId);
+        allow write: if isMember(businessId);
+      }
+
+      // ---------- Caja (un solo doc con el estado de la sesión actual) ----------
+      match /caja/{docId} {
+        allow read, write: if isMember(businessId);
+      }
+      match /movimientos/{id} {
+        allow read: if isMember(businessId);
+        allow create: if isMember(businessId);
+        allow update, delete: if false; // los movimientos de caja no se editan, quedan como bitácora
+      }
+
+      // ---------- Fiado ----------
+      match /customers/{id} {
+        allow read: if isMember(businessId);
+        allow write: if isMember(businessId);
+      }
+
+      // ---------- Invitaciones ----------
+      // Solo el dueño invita. Quien recibe la invitación (por su correo) puede
+      // leerla y marcarla como aceptada; no puede crearla ni cambiarle el rol.
+      match /invitations/{id} {
+        allow read: if isOwner(businessId) || (isSignedIn() && resource.data.emailLower == myEmail().lower());
+        allow create: if isOwner(businessId);
+        allow update: if isSignedIn() && isVerified() && resource.data.emailLower == myEmail().lower() &&
+          request.resource.data.estado == 'aceptada' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'aceptadaPorUid', 'aceptadaAt']);
+        allow delete: if isOwner(businessId);
+      }
+    }
+
+    // Nota: la regla de /invitations/{id} de arriba ya cubre también las
+    // consultas por collectionGroup('invitations') que hace el usuario
+    // invitado para encontrar sus invitaciones pendientes sin saber a qué
+    // negocio pertenecen (el path completo sigue matcheando esa regla).
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

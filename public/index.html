@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Mostrador — venta, caja y fiado</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <div id="loading" class="spinner">Cargando…</div>
+
+  <!-- ============ AUTENTICACIÓN ============ -->
+  <div id="auth" class="hidden">
+    <main style="padding-top:24px;">
+      <h1 style="font-size:24px;margin:0 0 6px;">Tu negocio, en la nube</h1>
+      <p style="color:var(--text-muted);font-size:14px;line-height:1.55;margin:0 0 20px;">Entra o crea tu cuenta para empezar.</p>
+      <div id="auth-msg"></div>
+      <div class="field"><label>Correo</label><input id="auth-email" type="email" autocomplete="email"></div>
+      <div class="field"><label>Contraseña (mínimo 6 caracteres)</label><input id="auth-pass" type="password" autocomplete="current-password"></div>
+      <button class="btn btn-lamp" id="btn-login">Iniciar sesión</button>
+      <div style="height:10px;"></div>
+      <button class="btn btn-ghost" id="btn-register">Crear cuenta nueva</button>
+    </main>
+  </div>
+
+  <!-- ============ ONBOARDING (crear negocio) ============ -->
+  <div id="onboarding" class="hidden">
+    <main style="padding-top:0;">
+      <h1>Registra tu negocio</h1>
+      <p>Se guarda en la nube: podrás entrar desde cualquier dispositivo con esta misma cuenta.</p>
+      <div id="ob-msg"></div>
+      <div class="field">
+        <label>¿Cómo se llama tu negocio?</label>
+        <input id="ob-nombre" placeholder="Ej: Colmado Los Hermanos">
+      </div>
+      <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:6px;">¿Qué tipo de negocio es?</label>
+      <div class="tipos" id="ob-tipos">
+        <button class="tipo-opt sel" data-tipo="colmado">Colmado / minimarket</button>
+        <button class="tipo-opt" data-tipo="salon">Salón / barbería</button>
+        <button class="tipo-opt" data-tipo="petshop">Pet shop</button>
+        <button class="tipo-opt" data-tipo="otro">Otro negocio</button>
+      </div>
+      <button class="btn btn-lamp" id="btn-crear-negocio">Empezar</button>
+    </main>
+  </div>
+
+  <!-- ============ APP PRINCIPAL ============ -->
+  <div id="main" class="hidden">
+    <header>
+      <div class="brand-row">
+        <div class="brand-name" id="hdr-nombre"></div>
+        <div class="status"><span class="dot"></span><span id="hdr-who"></span></div>
+      </div>
+      <div class="caja-line">
+        <span>Caja</span>
+        <b id="hdr-caja">cerrada</b>
+      </div>
+    </header>
+
+    <div class="banner" id="verify-banner" style="border-color:var(--debt);">
+      <b>Verifica tu correo</b> para poder aceptar invitaciones de equipo (evita que alguien más use tu correo).
+      <div id="verify-msg"></div>
+      <button class="btn btn-ghost btn-sm" id="btn-reenviar-verif" style="margin-top:8px;">Reenviar correo de verificación</button>
+    </div>
+
+    <div class="banner" id="banner">
+      <button id="btn-cerrar-banner">×</button>
+      <b>Todo queda guardado en la nube.</b> Puedes entrar desde otro dispositivo con la misma cuenta y verás la misma info al instante.
+    </div>
+
+    <main id="main-content"></main>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab-btn active" data-tab="venta"><span class="ic">🛒</span>Venta</button>
+      <button class="tab-btn" data-tab="caja"><span class="ic">💵</span>Caja</button>
+      <button class="tab-btn" data-tab="fiado"><span class="ic">📒</span>Fiado</button>
+      <button class="tab-btn" data-tab="inventario"><span class="ic">📦</span>Inventario</button>
+      <button class="tab-btn hidden" id="tab-equipo-btn" data-tab="equipo"><span class="ic">👥</span>Equipo</button>
+    </nav>
+  </div>
+
+</div>
+
+<!-- Firebase (SDK compat, sin build step ni Node como servidor) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js"></script>
+
+<!-- Módulos propios -->
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
