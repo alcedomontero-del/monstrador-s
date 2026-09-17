@@ -67,17 +67,28 @@ export async function crearNegocio() {
   const tipo = (document.querySelector('.tipo-opt.sel') || {}).dataset?.tipo || 'otro';
   const user = auth.currentUser;
   try {
+    // Paso 1: crear el negocio solo. La regla de creación de "businesses"
+    // solo depende de este mismo documento (ownerUid == uid), sin leer nada
+    // más, así que puede ir sola sin problema.
     const bizRef = db.collection('businesses').doc();
-    await db.runTransaction(async (tx) => {
-      tx.set(bizRef, { nombre, tipo, ownerUid: user.uid, createdAt: FieldValue.serverTimestamp() });
-      tx.set(bizRef.collection('members').doc(user.uid), { role: 'dueno', email: user.email, addedAt: FieldValue.serverTimestamp() });
-      tx.set(db.collection('users').doc(user.uid), { businessId: bizRef.id, email: user.email }, { merge: true });
-    });
-    // Un par de productos de ejemplo para que no arranque vacío.
+    await bizRef.set({ nombre, tipo, ownerUid: user.uid, createdAt: FieldValue.serverTimestamp() });
+
+    // Paso 2: ahora que el negocio YA existe en el servidor (no solo en una
+    // transacción pendiente), la regla de members/{uid} puede leerlo con
+    // get() para confirmar que este usuario es su dueño.
     const batch = db.batch();
-    [['Agua 20oz', 35, 24], ['Pan de agua', 20, 15], ['Cigarrillos suelto', 15, 40], ['Refresco lata', 60, 18]]
-      .forEach(([n, p, s]) => batch.set(bizRef.collection('products').doc(), { nombre: n, precio: p, stock: s }));
+    batch.set(bizRef.collection('members').doc(user.uid), { role: 'dueno', email: user.email, addedAt: FieldValue.serverTimestamp() });
+    batch.set(db.collection('users').doc(user.uid), { businessId: bizRef.id, email: user.email }, { merge: true });
     await batch.commit();
+
+    // Paso 3: recién aquí el usuario YA es miembro en el servidor, así que
+    // puede crear productos (esa regla exige isMember, que depende de que
+    // el documento de members del paso 2 ya esté escrito de verdad).
+    const batchProductos = db.batch();
+    [['Agua 20oz', 35, 24], ['Pan de agua', 20, 15], ['Cigarrillos suelto', 15, 40], ['Refresco lata', 60, 18]]
+      .forEach(([n, p, s]) => batchProductos.set(bizRef.collection('products').doc(), { nombre: n, precio: p, stock: s }));
+    await batchProductos.commit();
+
     await cargarPerfil(user);
   } catch (e) { showMsg('ob-msg', e.message, false); }
 }
