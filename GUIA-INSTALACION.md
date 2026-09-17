@@ -1,6 +1,6 @@
-# Guía de instalación — Mostrador SaaS (100% gratis, solo Firebase)
+# Guía de instalación — Mostrador SaaS (100% gratis, Firebase + Netlify)
 
-Stack: HTML/CSS/JS plano + Firebase Auth + Firestore + Storage + Firebase Hosting.
+Stack: HTML/CSS/JS plano + Firebase Auth + Firestore + Storage + Netlify (hosting).
 **Sin Node.js como servidor, sin Cloud Functions, sin plan de pago (Blaze), sin Cloudinary.**
 
 ---
@@ -10,14 +10,14 @@ Stack: HTML/CSS/JS plano + Firebase Auth + Firestore + Storage + Firebase Hostin
 - **Certificado digital / firma DGII:** fuera de alcance por ahora. Necesitaba Cloud Functions (servidor) para nunca exponer el archivo al navegador; sin backend propio no hay forma segura de hacerlo. Se retoma si más adelante deciden pagar Blaze.
 - **Multiusuario (dueño/cajero/contador):** el dueño crea una invitación en Firestore; cuando la persona invitada inicia sesión con ese correo, se auto-agrega como miembro. Sin Cloud Function no se puede ocultar si un correo ya tenía cuenta, pero tampoco se expone: el dueño nunca sabe si existía o no.
 - **Fotos de producto:** Firebase Storage en vez de Cloudinary. Mismo proyecto, gratis, protegido por reglas — no hace falta una segunda cuenta ni exponer un preset de subida abierto.
-- **Hosting:** Firebase Hosting (todo en un solo lugar).
+- **Hosting:** Netlify.
 
 ---
 
 ## 0. Necesitas
 
 - Cuenta Google (para Firebase).
-- Node.js **solo para instalar el CLI de Firebase** (es una herramienta de línea de comandos, no un servidor tuyo). Si prefieres no instalar Node en tu máquina, puedes hacer el paso 2 a mano desde la consola web (se indica la alternativa abajo).
+- Cuenta de GitHub y de Netlify.
 - Git.
 
 ---
@@ -39,8 +39,8 @@ public/
   js/main.js                     → cablea los botones y arranca la app
 firestore.rules
 storage.rules
-firebase.json
 firestore.indexes.json
+netlify.toml
 ```
 
 Cada módulo hace una sola cosa; `main.js` es el único que los conecta a todos. Para importar Firebase en el navegador sin bundler, `index.html` carga los SDK "compat" como `<script>` normales y luego `js/main.js` como `<script type="module">` — eso es lo que permite usar `import`/`export` sin Node como build step.
@@ -62,19 +62,7 @@ Cada módulo hace una sola cosa; `main.js` es el único que los conecta a todos.
 
 ---
 
-## 2. Desplegar las reglas de seguridad
-
-### Opción A — con el CLI (recomendada, más rápida)
-
-```bash
-npm install -g firebase-tools
-firebase login
-cd ruta/del/proyecto        # donde está firebase.json
-firebase use --add          # elige tu proyecto
-firebase deploy --only firestore:rules,firestore:indexes,storage:rules
-```
-
-### Opción B — sin instalar nada, a mano
+## 2. Desplegar las reglas de seguridad (a mano, desde la consola)
 
 1. Firebase Console → **Firestore Database → Reglas** → pega el contenido de `firestore.rules` → **Publicar**.
 2. **Storage → Reglas** → pega el contenido de `storage.rules` → **Publicar**.
@@ -102,23 +90,21 @@ git push -u origin main
 
 ---
 
-## 4. Desplegar en Firebase Hosting
+## 4. Desplegar en Netlify
 
-```bash
-firebase deploy --only hosting
-```
-
-Te da una URL tipo `tu-proyecto.web.app`. Cada vez que cambies el HTML, repite este comando (o conecta GitHub Actions desde la consola de Firebase para que se despliegue solo con cada `git push`, opcional).
+1. `app.netlify.com` → **Add new site → Import an existing project → GitHub** → autoriza → elige el repo.
+2. Netlify lee `netlify.toml` solo: publish `public`, sin build command. Deja los campos como los detecta → **Deploy**.
+3. Te da una URL tipo `tu-sitio.netlify.app`. Cada `git push` a `main` vuelve a desplegar solo.
 
 ### 4.1 Autorizar el dominio (login)
 
-Firebase ya autoriza automáticamente `tu-proyecto.web.app` y `tu-proyecto.firebaseapp.com`. Si luego usas un dominio propio: **Authentication → Settings → Dominios autorizados → Agregar**.
+Firebase no conoce tu dominio de Netlify por defecto: **Authentication → Settings → Dominios autorizados → Agregar** → pega `tu-sitio.netlify.app` (y tu dominio propio cuando lo tengas). Sin este paso, el login falla con `auth/unauthorized-domain`.
 
 ---
 
 ## 5. Probar
 
-1. Abre la URL de Hosting.
+1. Abre la URL de Netlify.
 2. Crea una cuenta (correo + contraseña) → crea tu negocio → ya puedes vender.
 3. Para probar multiusuario: en **Equipo**, invita otro correo como "cajero" → abre la app en incógnito → crea cuenta con ese correo → entra directo al mismo negocio con ese rol.
 4. Abre la misma cuenta en otro dispositivo/navegador: verás el mismo inventario y caja en tiempo real.
@@ -151,7 +137,7 @@ Firebase ya autoriza automáticamente `tu-proyecto.web.app` y `tu-proyecto.fireb
 | Firestore | 50,000 lecturas, 20,000 escrituras, 1 GB almacenado | Varios negocios chicos vendiendo a diario |
 | Storage | 1 GB descarga/día, 5 GB almacenado | Cientos de fotos de producto |
 | Authentication | Ilimitado | — |
-| Hosting | 10 GB transferencia/mes | Tráfico normal de una app de uso interno |
+| Netlify Hosting | 100 GB transferencia/mes | Tráfico normal de una app de uso interno |
 
 Si un negocio individual se acerca a estos límites es buena señal (está vendiendo mucho); ahí conviene evaluar Blaze — solo se cobra el excedente, no todo el uso.
 
@@ -163,6 +149,6 @@ Si un negocio individual se acerca a estos límites es buena señal (está vendi
 |---|---|
 | `Missing or insufficient permissions` | Reglas no desplegadas, o el usuario no es miembro del negocio todavía |
 | La invitación no se activa | El invitado debe iniciar sesión (no solo tener cuenta) para que se resuelva; revisa que el correo esté exactamente igual (minúsculas) |
-| `The query requires an index` al invitar/entrar | Abre el link del error y crea el índice (paso 2, Opción B, punto 3) |
+| `The query requires an index` al invitar/entrar | Abre el link del error y crea el índice (paso 2, punto 3) |
 | `auth/unauthorized-domain` | Dominio no autorizado en Authentication → Settings |
 | Foto de producto no sube | Revisa que el archivo sea imagen y pese menos de 3 MB (límite en `storage.rules`) |
